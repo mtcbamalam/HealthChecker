@@ -9,6 +9,10 @@ Exchange TCP `KeepAliveTime` should be set to 30 minutes or no less than 15 minu
 
 The goal is to set Exchange with the lowest value so that client sessions when ended, are ended by the Exchange and not by a device.
 
+Example:
+
+`Client -> Firewall (1 hour) -> NLB (40 minutes) -> Exchange Servers (20 Minutes)`
+
 **Included in HTML Report?**
 
 Yes

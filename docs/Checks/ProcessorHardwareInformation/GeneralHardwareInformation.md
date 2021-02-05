@@ -30,7 +30,7 @@ We additionally show the following information, if `HardwareType` is `Physical` 
 
 **Hyper-Threading:**
 
-We show if Hyper-Threading is enabled or not.
+[We show if Hyper-Threading is enabled or not.](HyperThreadingCheck.md)
 
 **NUMA BIOS Check:**
 

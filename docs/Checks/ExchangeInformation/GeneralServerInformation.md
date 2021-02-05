@@ -14,6 +14,9 @@ We validate if the server is running an supported (**N-1**) Cumulative Update (C
 We show installed Exchange Interims Update (IU) or Security Updates (SU)
 - Server Role
 - MAPI/HTTP Organizational Status (Enabled/Disabled)
+- [Maintenance State](ExchangeServerMaintenanceCheck.md)
+- Database Availability Group (DAG) in which the server is a member
+- AD Site in which the server is located
 
 **Included in HTML Report?**
 
