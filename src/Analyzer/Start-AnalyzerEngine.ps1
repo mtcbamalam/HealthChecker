@@ -1135,10 +1135,12 @@ Function Start-AnalyzerEngine {
                 -AnalyzedInformation $analyzedResults
         }
 
-        $analyzedResults = Add-AnalyzedResultInformation -Name "Current Auth Certificate" -Details $certificate.IsCurrentAuthConfigCertificate `
-            -DisplayGroupingKey $keySecuritySettings `
-            -DisplayCustomTabNumber 2 `
-            -AnalyzedInformation $analyzedResults
+        if ($exchangeInformation.BuildInformation.ServerRole -ne [HealthChecker.ExchangeServerRole]::Edge) {
+            $analyzedResults = Add-AnalyzedResultInformation -Name "Current Auth Certificate" -Details $certificate.IsCurrentAuthConfigCertificate `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 2 `
+                -AnalyzedInformation $analyzedResults
+        }
 
         $analyzedResults = Add-AnalyzedResultInformation -Name "SAN Certificate" -Details $certificate.IsSanCertificate `
             -DisplayGroupingKey $keySecuritySettings `
@@ -1164,6 +1166,18 @@ Function Start-AnalyzerEngine {
             -DisplayGroupingKey $keySecuritySettings `
             -DisplayCustomTabNumber 1 `
             -DisplayWriteType "Green" `
+            -AnalyzedInformation $analyzedResults
+    } elseif ($exchangeInformation.BuildInformation.ServerRole -eq [HealthChecker.ExchangeServerRole]::Edge) {
+        $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $false `
+            -DisplayGroupingKey $keySecuritySettings `
+            -DisplayCustomTabNumber 1 `
+            -DisplayWriteType "Yellow" `
+            -AnalyzedInformation $analyzedResults
+
+        $analyzedResults = Add-AnalyzedResultInformation -Details "We can't check for Auth Certificates on Edge Transport Servers" `
+            -DisplayGroupingKey $keySecuritySettings `
+            -DisplayCustomTabNumber 2 `
+            -DisplayWriteType "Yellow" `
             -AnalyzedInformation $analyzedResults
     } else {
         $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $false `
@@ -1385,8 +1399,8 @@ Function Start-AnalyzerEngine {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2044.12", "2106.6" -CVENames "CVE-2020-17117", "CVE-2020-17132", "CVE-2020-17141", "CVE-2020-17142", "CVE-2020-17143"
         }
 
-        if ($exchangeCU -ge [HealthChecker.ExchangeCULevel]::CU19) {
-            Write-VerboseOutput("There are no known vulnerabilities in this Exchange Server Build.")
+        if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU19) {
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2106.8", "2176.4" -CVENames "CVE-2021-24085"
         }
     } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2019) {
 
@@ -1421,8 +1435,8 @@ Function Start-AnalyzerEngine {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "659.11", "721.6" -CVENames "CVE-2020-17117", "CVE-2020-17132", "CVE-2020-17141", "CVE-2020-17142", "CVE-2020-17143"
         }
 
-        if ($exchangeCU -ge [HealthChecker.ExchangeCULevel]::CU8) {
-            Write-VerboseOutput("There are no known vulnerabilities in this Exchange Server Build.")
+        if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU8) {
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "721.8", "792.5" -CVENames "CVE-2021-24085"
         }
     } else {
         Write-VerboseOutput("Unknown Version of Exchange")
