@@ -105,12 +105,12 @@ Function Start-AnalyzerEngine {
         -AnalyzedInformation $analyzedResults
 
     if ($exchangeInformation.BuildInformation.ServerRole -le [HealthChecker.ExchangeServerRole]::Mailbox) {
-        $analyzedResults = Add-AnalyzedResultInformation -Name "DAG Name" -Details ($exchangeInformation.GetMailboxServer.DatabaseAvailabilityGroup.Name) `
+        $analyzedResults = Add-AnalyzedResultInformation -Name "DAG Name" -Details ([System.Convert]::ToString($exchangeInformation.GetMailboxServer.DatabaseAvailabilityGroup)) `
             -DisplayGroupingKey $keyExchangeInformation `
             -AnalyzedInformation $analyzedResults
     }
 
-    $analyzedResults = Add-AnalyzedResultInformation -Name "AD Site" -Details ($exchangeInformation.GetExchangeServer.Site.Name) `
+    $analyzedResults = Add-AnalyzedResultInformation -Name "AD Site" -Details ([System.Convert]::ToString(($exchangeInformation.GetExchangeServer.Site)).Split("/")[-1]) `
         -DisplayGroupingKey $keyExchangeInformation `
         -AnalyzedInformation $analyzedResults
 
@@ -315,10 +315,10 @@ Function Start-AnalyzerEngine {
         $displayValue = "Multiple page files detected. `r`n`t`tError: This has been know to cause performance issues please address this."
         $displayWriteType = "Red"
     } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2019) {
-        $testingValue.RecommendedPageFile = ($recommendedPageFileSize = [Math]::Truncate(($totalPhysicalMemory / 1MB) / 4))
+        $testingValue.RecommendedPageFile = ($recommendedPageFileSize = [Math]::Round(($totalPhysicalMemory / 1MB) / 4))
         Write-VerboseOutput("Recommended Page File Size: {0}" -f $recommendedPageFileSize)
         if ($recommendedPageFileSize -ne $maxPageSize) {
-            $displayValue = "{0}MB `r`n`t`tWarning: Page File is not set to 25% of the Total System Memory which is {1}MB. Recommended is {2}MB" -f $maxPageSize, ([Math]::Truncate($totalPhysicalMemory / 1MB)), $recommendedPageFileSize
+            $displayValue = "{0}MB `r`n`t`tWarning: Page File is not set to 25% of the Total System Memory which is {1}MB. Recommended is {2}MB" -f $maxPageSize, ([Math]::Round($totalPhysicalMemory / 1MB)), $recommendedPageFileSize
         } else {
             $displayValue = "{0}MB" -f $recommendedPageFileSize
             $displayWriteType = "Grey"
@@ -985,6 +985,28 @@ Function Start-AnalyzerEngine {
         -DisplayWriteType $displayWriteType `
         -AnalyzedInformation $analyzedResults
 
+    if ($null -ne $exchangeInformation.ApplicationConfigFileStatus -and
+        $exchangeInformation.ApplicationConfigFileStatus.Count -ge 1) {
+
+        foreach ($configKey in $exchangeInformation.ApplicationConfigFileStatus.Keys) {
+            $configStatus = $exchangeInformation.ApplicationConfigFileStatus[$configKey]
+
+            $writeType = "Green"
+            $writeName = "{0} Present" -f $configKey
+            $writeValue = $configStatus.Present
+
+            if (!$configStatus.Present) {
+                $writeType = "Red"
+                $writeValue = "{0} --- Error" -f $writeValue
+            }
+
+            $analyzedResults = Add-AnalyzedResultInformation -Name $writeName -Details $writeValue `
+                -DisplayGroupingKey $keyFrequentConfigIssues `
+                -DisplayWriteType $writeType `
+                -AnalyzedInformation $analyzedResults
+        }
+    }
+
     $analyzedResults = Add-AnalyzedResultInformation -Name "LmCompatibilityLevel Settings" -Details ($osInformation.LmCompatibility.RegistryValue) `
         -DisplayGroupingKey $keySecuritySettings `
         -AnalyzedInformation $analyzedResults
@@ -1055,6 +1077,50 @@ Function Start-AnalyzerEngine {
                 -AnalyzedInformation $analyzedResults
         }
     }
+
+    $analyzedResults = Add-AnalyzedResultInformation -Name "SystemDefaultTlsVersions" -Details ($currentNetVersion.SystemDefaultTlsVersions) `
+        -DisplayGroupingKey $keySecuritySettings `
+        -AnalyzedInformation $analyzedResults
+
+    $analyzedResults = Add-AnalyzedResultInformation -Name "SystemDefaultTlsVersions - Wow6432Node" -Details ($currentNetVersion.WowSystemDefaultTlsVersions) `
+        -DisplayGroupingKey $keySecuritySettings `
+        -AnalyzedInformation $analyzedResults
+
+    $analyzedResults = Add-AnalyzedResultInformation -Name "SchUseStrongCrypto" -Details ($currentNetVersion.SchUseStrongCrypto) `
+        -DisplayGroupingKey $keySecuritySettings `
+        -AnalyzedInformation $analyzedResults
+
+    $analyzedResults = Add-AnalyzedResultInformation -Name "SchUseStrongCrypto - Wow6432Node" -Details ($currentNetVersion.WowSchUseStrongCrypto) `
+        -DisplayGroupingKey $keySecuritySettings `
+        -AnalyzedInformation $analyzedResults
+
+    $analyzedResults = Add-AnalyzedResultInformation -Name "SecurityProtocol" -Details ($currentNetVersion.SecurityProtocol) `
+        -DisplayGroupingKey $keySecuritySettings `
+        -AnalyzedInformation $analyzedResults
+
+    <#
+    [array]$securityProtocols = $currentNetVersion.SecurityProtocol.Split(",").Trim().ToUpper()
+    $lowerTLSVersions = @("1.0", "1.1")
+
+    foreach ($tlsKey in $lowerTLSVersions) {
+        $currentTlsVersion = $osInformation.TLSSettings[$tlsKey]
+        $securityProtocolCheck = "TLS"
+        if ($tlsKey -eq "1.1") {
+            $securityProtocolCheck = "TLS11"
+        }
+
+        if (($currentTlsVersion.ServerEnabled -eq $false -or
+                $currentTlsVersion.ClientEnabled -eq $false) -and
+            $securityProtocols.Contains($securityProtocolCheck)) {
+
+            $analyzedResults = Add-AnalyzedResultInformation -Details ("Security Protocol is able to use TLS when we have TLS {0} disabled in the registry. This can cause issues with connectivity. It is recommended to follow the proper TLS settings. In some cases, it may require to also set SchUseStrongCrypto in the registry." -f $tlsKey) `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 2 `
+                -DisplayWriteType "Yellow" `
+                -AnalyzedInformation $analyzedResults
+        }
+    }
+#>
 
     if ($detectedTlsMismatch) {
         $displayValues = @("Exchange Server TLS guidance Part 1: Getting Ready for TLS 1.2: https://techcommunity.microsoft.com/t5/Exchange-Team-Blog/Exchange-Server-TLS-guidance-part-1-Getting-Ready-for-TLS-1-2/ba-p/607649",
@@ -1348,6 +1414,7 @@ Function Start-AnalyzerEngine {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1497.7" -CVENames "CVE-2020-16969"
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1497.8" -CVENames "CVE-2020-17083", "CVE-2020-17084", "CVE-2020-17085"
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1497.10" -CVENames "CVE-2020-17117", "CVE-2020-17132", "CVE-2020-17142", "CVE-2020-17143"
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1497.12" -CVENames "CVE-2021-26412", "CVE-2021-27078", "CVE-2021-26854", "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
         }
     } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2016) {
 
@@ -1401,6 +1468,7 @@ Function Start-AnalyzerEngine {
 
         if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU19) {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2106.8", "2176.4" -CVENames "CVE-2021-24085"
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2106.13", "2176.9" -CVENames "CVE-2021-26412", "CVE-2021-27078", "CVE-2021-26854", "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
         }
     } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2019) {
 
@@ -1437,6 +1505,7 @@ Function Start-AnalyzerEngine {
 
         if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU8) {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "721.8", "792.5" -CVENames "CVE-2021-24085"
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "721.13", "792.10" -CVENames "CVE-2021-26412", "CVE-2021-27078", "CVE-2021-26854", "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
         }
     } else {
         Write-VerboseOutput("Unknown Version of Exchange")
