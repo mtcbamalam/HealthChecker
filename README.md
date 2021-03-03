@@ -1,11 +1,12 @@
 # HealthChecker
 
 [![Build Status](https://dev.azure.com/CSS-Exchange-Tools/Exchange%20Health%20Checker/_apis/build/status/dpaulson45.HealthChecker?branchName=master)](https://dev.azure.com/CSS-Exchange-Tools/Exchange%20Health%20Checker/_build/latest?definitionId=5&branchName=master)
+[![Downloads](https://img.shields.io/github/downloads/dpaulson45/HealthChecker/total.svg?label=Downloads&maxAge=9999)](https://github.com/dpaulson45/HealthChecker/releases)
 
 The Exchange Server Health Checker script helps detect common configuration issues that are known to cause performance issues and other long running issues that are caused by a simple configuration change within an Exchange Environment. It also helps collect useful information of your server to help speed up the process of common information gathering of your server.
 
 # Download
-To download this script, download the latest version [here](http://aka.ms/ExHCDownload)
+To download this script, download the latest version [here](https://aka.ms/ExHCDownload)
 
 Or go to the [Releases](https://github.com/dpaulson45/HealthChecker/releases) page and select `HealthChecker.ps1` asset to download.
 
@@ -59,6 +60,12 @@ This cmdlet will run the Health Checker Mailbox Report against the Server EXCH1
 
 ```
 .\HealthChecker.ps1 -MailboxReport -Server EXCH1
+```
+
+This cmdlet will run the Health Checker against all your Exchange Servers, then run the HTML report and open it.
+
+```
+Get-ExchangeServer | ?{$_.AdminDisplayVersion -Match "^Version 15"} | %{.\HealthChecker.ps1 -Server $_.Name}; .\HealthChecker.ps1 -BuildHtmlServersReport; .\ExchangeAllServersReport.html
 ```
 
 # Parameters
