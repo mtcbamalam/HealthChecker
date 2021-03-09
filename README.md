@@ -10,6 +10,23 @@ To download this script, download the latest version [here](https://aka.ms/ExHCD
 
 Or go to the [Releases](https://github.com/dpaulson45/HealthChecker/releases) page and select `HealthChecker.ps1` asset to download.
 
+# Requirements
+### Supported Exchange Server Versions:
+The script can be used to validate the configuration of the following Exchange Server versions:
+- Exchange Server 2013
+- Exchange Server 2016
+- Exchange Server 2019
+
+You can use the latest v2 release to validate the configuration of `Exchange Server 2010`. Please note that this version is no longer maintained and some checks are not available.
+
+You can download the latest v2 release [here](https://aka.ms/ExHCDownloadv2)
+
+### Required Permissions:
+Please make sure that the account used is a member of the `Local Administrator` group. This should be fulfilled on Exchange servers by being a member of the  `Organization Management` group. However, if the group membership was adjusted or in case the script is executed on a non-Exchange system like a management server, you need to add your account to the `Local Administrator` group. You also need to be a member of the following groups:
+
+- Organization Management
+- Domain Admins (only necessary for the `DCCoreRatio` parameter)
+
 # How To Run
 This script **must** be run as Administrator in Exchange Management Shell on an Exchange Server. You can provide no parameters and the script will just run against the local server and provide the detail output of the configuration of the server.
 
