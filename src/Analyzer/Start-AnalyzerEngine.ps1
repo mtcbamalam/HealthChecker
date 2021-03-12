@@ -1186,6 +1186,19 @@ Function Start-AnalyzerEngine {
             -DisplayWriteType $displayColor `
             -AnalyzedInformation $analyzedResults
 
+        if ($certificate.LifetimeInDays -lt 0) {
+            $analyzedResults = Add-AnalyzedResultInformation -Name "Certificate has expired" -Details $true `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 2 `
+                -DisplayWriteType "Red" `
+                -AnalyzedInformation $analyzedResults
+        } else {
+            $analyzedResults = Add-AnalyzedResultInformation -Name "Certificate has expired" -Details $false `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 2 `
+                -AnalyzedInformation $analyzedResults
+        }
+
         if ($certificate.PublicKeySize -lt 2048) {
             $additionalDisplayValue = "It's recommended to use a key size of at least 2048 bit."
 
@@ -1237,26 +1250,42 @@ Function Start-AnalyzerEngine {
                 -DisplayCustomTabNumber 3 `
                 -AnalyzedInformation $analyzedResults
         }
+
+        if ($certificate.IsCurrentAuthConfigCertificate -eq $true) {
+            $currentAuthCertificate = $certificate
+        }
     }
 
-    if (($null -ne $exchangeInformation.ExchangeCertificates) -and
-        ($exchangeInformation.ExchangeCertificates.IsCurrentAuthConfigCertificate -contains $true)) {
-        $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $true `
-            -DisplayGroupingKey $keySecuritySettings `
-            -DisplayCustomTabNumber 1 `
-            -DisplayWriteType "Green" `
-            -AnalyzedInformation $analyzedResults
+    if ($null -ne $currentAuthCertificate) {
+        if ($currentAuthCertificate.LifetimeInDays -gt 0) {
+            $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $true `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 1 `
+                -DisplayWriteType "Green" `
+                -AnalyzedInformation $analyzedResults
+        } else {
+            $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $false `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 1 `
+                -DisplayWriteType "Red" `
+                -AnalyzedInformation $analyzedResults
+
+            $renewExpiredAuthCert = "Auth Certificate has expired `r`n`t`tMore Information: https://docs.microsoft.com/en-us/exchange/troubleshoot/administration/cannot-access-owa-or-ecp-if-oauth-expired#resolution"
+            $analyzedResults = Add-AnalyzedResultInformation -Details $renewExpiredAuthCert `
+                -DisplayGroupingKey $keySecuritySettings `
+                -DisplayCustomTabNumber 2 `
+                -DisplayWriteType "Red" `
+                -AnalyzedInformation $analyzedResults
+        }
     } elseif ($exchangeInformation.BuildInformation.ServerRole -eq [HealthChecker.ExchangeServerRole]::Edge) {
         $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $false `
             -DisplayGroupingKey $keySecuritySettings `
             -DisplayCustomTabNumber 1 `
-            -DisplayWriteType "Yellow" `
             -AnalyzedInformation $analyzedResults
 
         $analyzedResults = Add-AnalyzedResultInformation -Details "We can't check for Auth Certificates on Edge Transport Servers" `
             -DisplayGroupingKey $keySecuritySettings `
             -DisplayCustomTabNumber 2 `
-            -DisplayWriteType "Yellow" `
             -AnalyzedInformation $analyzedResults
     } else {
         $analyzedResults = Add-AnalyzedResultInformation -Name "Valid Auth Certificate Found On Server" -Details $false `
@@ -1265,7 +1294,8 @@ Function Start-AnalyzerEngine {
             -DisplayWriteType "Red" `
             -AnalyzedInformation $analyzedResults
 
-        $analyzedResults = Add-AnalyzedResultInformation -Details "No valid Auth Certificate found. This may cause several problems --- Error" `
+        $createNewAuthCert = "No valid Auth Certificate found. This may cause several problems. `r`n`t`tMore Information: https://docs.microsoft.com/en-us/exchange/troubleshoot/administration/exchange-oauth-authentication-could-not-find-the-authorization"
+        $analyzedResults = Add-AnalyzedResultInformation -Details $createNewAuthCert `
             -DisplayGroupingKey $keySecuritySettings `
             -DisplayCustomTabNumber 2 `
             -DisplayWriteType "Red" `
@@ -1504,7 +1534,7 @@ Function Start-AnalyzerEngine {
 
         if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU19) {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2106.8", "2176.4" -CVENames "CVE-2021-24085"
-            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1713.10", "1779.8", "1847.12", "1913.12", "1979.8", "2044.13", "2106.13", "2176.9" -CVENames "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "1415.8", "1466.13", "1531.12", "1591.18", "1713.10", "1779.8", "1847.12", "1913.12", "1979.8", "2044.13", "2106.13", "2176.9" -CVENames "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "2106.13", "2176.9" -CVENames "CVE-2021-26412", "CVE-2021-27078", "CVE-2021-26854"
         }
     } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2019) {
@@ -1542,7 +1572,7 @@ Function Start-AnalyzerEngine {
 
         if ($exchangeCU -le [HealthChecker.ExchangeCULevel]::CU8) {
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "721.8", "792.5" -CVENames "CVE-2021-24085"
-            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "464.15", "529.13", "595.8", "659.12", "721.13", "792.10" -CVENames "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
+            Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "221.18", "330.11", "397.11", "464.15", "529.13", "595.8", "659.12", "721.13", "792.10" -CVENames "CVE-2021-26855", "CVE-2021-26857", "CVE-2021-26858", "CVE-2021-27065"
             Test-VulnerabilitiesByBuildNumbersForDisplay -ExchangeBuildRevision $buildRevision -SecurityFixedBuilds "721.13", "792.10" -CVENames "CVE-2021-26412", "CVE-2021-27078", "CVE-2021-26854"
         }
     } else {
@@ -1563,6 +1593,10 @@ Function Start-AnalyzerEngine {
             }
         } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2016) {
             Switch ($exchangeCU) {
+                ([HealthChecker.ExchangeCULevel]::CU8) { $KBCveComb = @{KB4073392 = "CVE-2018-0924", "CVE-2018-0940", "CVE-2018-0941"; KB4092041 = "CVE-2018-8151", "CVE-2018-8152", "CVE-2018-8153", "CVE-2018-8154", "CVE-2018-8159" } }
+                ([HealthChecker.ExchangeCULevel]::CU9) { $KBCveComb = @{KB4092041 = "CVE-2018-8151", "CVE-2018-8152", "CVE-2018-8153", "CVE-2018-8154", "CVE-2018-8159"; KB4340731 = "CVE-2018-8374", "CVE-2018-8302" } }
+                ([HealthChecker.ExchangeCULevel]::CU10) { $KBCveComb = @{KB4340731 = "CVE-2018-8374", "CVE-2018-8302"; KB4459266 = "CVE-2018-8265", "CVE-2018-8448"; KB4468741 = "CVE-2018-8604"; KB4471389 = "CVE-2019-0586", "CVE-2019-0588" } }
+                ([HealthChecker.ExchangeCULevel]::CU11) { $KBCveComb = @{KB4468741 = "CVE-2018-8604"; KB4471389 = "CVE-2019-0586", "CVE-2019-0588"; KB4487563 = "CVE-2019-0817", "CVE-2018-0858"; KB4503027 = "ADV190018" } }
                 ([HealthChecker.ExchangeCULevel]::CU12) { $KBCveComb = @{KB4487563 = "CVE-2019-0817", "CVE-2018-0858"; KB4503027 = "ADV190018"; KB4515832 = "CVE-2019-1233", "CVE-2019-1266" } }
                 ([HealthChecker.ExchangeCULevel]::CU13) { $KBCveComb = @{KB4509409 = "CVE-2019-1084", "CVE-2019-1136", "CVE-2019-1137"; KB4515832 = "CVE-2019-1233", "CVE-2019-1266"; KB4523171 = "CVE-2019-1373" } }
                 ([HealthChecker.ExchangeCULevel]::CU14) { $KBCveComb = @{KB4523171 = "CVE-2019-1373"; KB4536987 = "CVE-2020-0688", "CVE-2020-0692"; KB4540123 = "CVE-2020-0903" } }
@@ -1572,6 +1606,9 @@ Function Start-AnalyzerEngine {
             }
         } elseif ($exchangeInformation.BuildInformation.MajorVersion -eq [HealthChecker.ExchangeMajorVersion]::Exchange2019) {
             Switch ($exchangeCU) {
+                ([HealthChecker.ExchangeCULevel]::RTM) { $KBCveComb = @{KB4471389 = "CVE-2019-0586", "CVE-2019-0588"; KB4487563 = "CVE-2019-0817", "CVE-2019-0858"; KB4503027 = "ADV190018" } }
+                ([HealthChecker.ExchangeCULevel]::CU1) { $KBCveComb = @{KB4487563 = "CVE-2019-0817", "CVE-2019-0858"; KB4503027 = "ADV190018"; KB4509409 = "CVE-2019-1084", "CVE-2019-1137"; KB4515832 = "CVE-2019-1233", "CVE-2019-1266" } }
+                ([HealthChecker.ExchangeCULevel]::CU2) { $KBCveComb = @{KB4509409 = "CVE-2019-1084", "CVE-2019-1137"; KB4515832 = "CVE-2019-1233", "CVE-2019-1266"; KB4523171 = "CVE-2019-1373" } }
                 ([HealthChecker.ExchangeCULevel]::CU3) { $KBCveComb = @{KB4523171 = "CVE-2019-1373"; KB4536987 = "CVE-2020-0688", "CVE-2020-0692"; KB4540123 = "CVE-2020-0903" } }
                 ([HealthChecker.ExchangeCULevel]::CU4) { $KBCveComb = @{KB4536987 = "CVE-2020-0688", "CVE-2020-0692"; KB4540123 = "CVE-2020-0903" } }
                 ([HealthChecker.ExchangeCULevel]::CU5) { $KBCveComb = @{KB4577352 = "CVE-2020-16875" } }
